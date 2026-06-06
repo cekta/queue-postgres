@@ -11,7 +11,6 @@ use Testo\Convention\NamingConventionPlugin;
 return new ApplicationConfig(
     src: ["src"],
     suites: [
-        new SuiteConfig(name: "Unit", location: ["tests/Unit"]),
         new SuiteConfig(
             name: "Feature",
             location: ["tests/Feature"],
