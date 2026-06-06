@@ -1,6 +1,6 @@
 {
-  "name": "cekta/example",
-  "description": "",
+  "name": "cekta/queue-postgres",
+  "description": "Postgres implementation for cekta/queue",
   "type": "library",
   "license": "GPL-3.0-only",
   "prefer-stable": true,
@@ -10,14 +10,21 @@
     }
   },
   "require": {
-    "php": ">=8.3"
+    "php": ">=8.3",
+    "ext-pdo": "*",
+    "ramsey/uuid": "^4.9",
+    "psr/clock": "^1.0",
+    "psr/log": "^3.0",
+    "psr/container": "^2.0",
+    "ext-pcntl": "*"
   },
   "require-dev": {
     "squizlabs/php_codesniffer": "@stable",
     "phpstan/phpstan": "@stable",
-    "infection/infection": "dev-master",
+    "infection/infection": "@stable",
     "testo/testo": "@stable",
-    "testo/bridge-infection": "@stable"
+    "testo/bridge-infection": "@stable",
+    "lcobucci/clock": "^3.5"
   },
   "scripts": {
     "test": [
@@ -34,12 +41,12 @@
   },
   "autoload": {
     "psr-4": {
-      "App\\": "src/"
+      "Cekta\\Queue\\Postgres\\": "src/"
     }
   },
   "autoload-dev": {
     "psr-4": {
-      "App\\Test\\": "tests/"
+      "Cekta\\Queue\\Postgres\\Test\\": "tests/"
     }
   },
   "authors": [
