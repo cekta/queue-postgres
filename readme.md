@@ -1,8 +1,1 @@
-[READEME_RU](https://cekta.github.io/php-package-template/)
-
-LIVE, PHP, Пишем очередь для своего фреймворка
-
-В ходе трансляции вы можете задавать вопросы в чат трансляции youtube или vk, я читаю на отдельном мониторе, запись трансляции будет доступна какое-то время.
-
-Наш чат: https://t.me/dev_ru
-Канал чтобы не пропускать самое важное: https://t.me/kuvshinov_e
+[READEME_RU](https://cekta.github.io/queue-postgres/)
