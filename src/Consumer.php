@@ -62,10 +62,7 @@ readonly class Consumer
         );
         $stm->execute();
         $row = $stm->fetch();
-        if (
-            !is_array($row)
-            || !is_string($row['uuid'])
-        ) {
+        if (!is_array($row)) {
             return null;
         }
         $this->pdo->prepare(
