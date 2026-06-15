@@ -12,7 +12,6 @@ class Worker
     private bool $shouldStop = false;
     public function __construct(
         private Consumer $consumer,
-        private HandlerProvider $handlerProvider,
         private LoggerInterface $logger,
         private int $sleep = 1,
     ) {
@@ -25,13 +24,7 @@ class Worker
         pcntl_signal(SIGINT, [$this, 'handleSignal']);
         while (!$this->shouldStop) {
             try {
-                $task = $this->consumer->getNext();
-                if (null === $task) {
-                    sleep($this->sleep);
-                    continue;
-                }
-                $handler = $this->handlerProvider->getHandler($task->handler);
-                $this->consumer->finish($task->uuid, $handler->handle($task));
+                $this->consumer->consume();
             } catch (Throwable $e) {
                 $this->logger->error($e);
                 sleep($this->sleep);
