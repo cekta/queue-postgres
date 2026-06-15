@@ -65,6 +65,7 @@ readonly class Consumer
         if (!is_array($row)) {
             return null;
         }
+        /** @var array{uuid: string} $row */
         $this->pdo->prepare(
             "UPDATE tasks 
                         SET status = :status, started_at = :started_at
