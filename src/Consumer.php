@@ -18,11 +18,10 @@ readonly class Consumer
     ) {
     }
 
-    public function consume(int $microseconds = 100): ?TaskDTO
+    public function consume(): ?TaskDTO
     {
         $task = $this->getNext();
         if ($task === null) {
-            usleep($microseconds);
             return null;
         }
         $handler = $this->handlerProvider->getHandler($task->handler);
@@ -51,7 +50,7 @@ readonly class Consumer
 
     private function getNextUUID(): ?string
     {
-        $stm = $this->pdo->query(
+        $stm = $this->pdo->prepare(
             "DELETE FROM queue_default
                          WHERE uuid = (
                              SELECT uuid FROM queue_default
@@ -61,9 +60,7 @@ readonly class Consumer
                          )
                          RETURNING uuid"
         );
-        if ($stm === false) {
-            return null;
-        }
+        $stm->execute();
         $row = $stm->fetch();
         if (
             !is_array($row)
