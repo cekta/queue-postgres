@@ -10,6 +10,7 @@ use Cekta\Queue\Postgres\Producer;
 use Cekta\Queue\Postgres\Provider;
 use Cekta\Queue\Postgres\Status;
 use Cekta\Queue\Postgres\TaskDTO;
+use Cekta\Queue\Postgres\TaskProvider;
 use Cekta\Queue\Postgres\Test\Fixture\DbStructure;
 use Cekta\Queue\Postgres\Test\Fixture\ExampleHandler;
 use Cekta\Queue\Postgres\Test\Fixture\ExampleTask;
@@ -99,6 +100,7 @@ class TaskSendTest
                 return true;
             }),
             clock: $this->clock,
+            taskProvider: new TaskProvider($this->pdo),
         );
 
         $task = $consumer->consume();
@@ -123,6 +125,7 @@ class TaskSendTest
                 return false;
             }),
             clock: $this->clock,
+            taskProvider: new TaskProvider($this->pdo),
         );
 
         $task = $consumer->consume();
@@ -144,6 +147,7 @@ class TaskSendTest
                 return true;
             }),
             clock: $this->clock,
+            taskProvider: new TaskProvider($this->pdo),
         );
         Assert::null($consumer->consume());
     }
