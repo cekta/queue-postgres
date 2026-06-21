@@ -16,7 +16,7 @@
     "psr/clock": "^1.0",
     "psr/log": "^3.0",
     "psr/container": "^2.0",
-    "ext-pcntl": "*"
+    "cekta/queue": "dev-master"
   },
   "require-dev": {
     "squizlabs/php_codesniffer": "@stable",

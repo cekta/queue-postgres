@@ -2,6 +2,9 @@
 
 namespace Cekta\Queue\Postgres;
 
+use Cekta\Queue\Status;
+use Cekta\Queue\Task;
+use Cekta\Queue\TaskDTO;
 use DateTimeInterface;
 use PDO;
 use Psr\Clock\ClockInterface;
@@ -12,28 +15,28 @@ readonly class Consumer
         private PDO $pdo,
         private HandlerProvider $handlerProvider,
         private ClockInterface $clock,
-        private TaskProvider $taskProvider,
+        private TaskRepository $taskRepository,
     ) {
     }
 
-    public function consume(): ?TaskDTO
+    public function consume(): ?Task
     {
         $task = $this->getNext();
         if ($task === null) {
             return null;
         }
-        $handler = $this->handlerProvider->getHandler($task->handler);
+        $handler = $this->handlerProvider->getHandler($task->getHandler());
         $status = $handler->handle($task) ? Status::SUCCESS->value : Status::FAIL->value;
         $this->pdo->prepare("UPDATE tasks SET status = :status, finished_at = :finished_at WHERE uuid = :uuid")
             ->execute([
-                'uuid' => $task->uuid,
+                'uuid' => $task->getUuid(),
                 'status' => $status,
                 'finished_at' => $this->clock->now()->format(DateTimeInterface::RFC3339),
             ]);
-        return $this->taskProvider->get($task->uuid);
+        return $this->taskRepository->findByUuid($task->getUuid());
     }
 
-    private function getNext(): ?TaskDTO
+    private function getNext(): ?Task
     {
         $this->pdo->beginTransaction();
         $uuid = $this->getNextUUID();
@@ -41,7 +44,7 @@ readonly class Consumer
             $this->pdo->commit();
             return null;
         }
-        $task = $this->taskProvider->get($uuid);
+        $task = $this->taskRepository->findByUuid($uuid);
         $this->pdo->commit();
         return $task;
     }

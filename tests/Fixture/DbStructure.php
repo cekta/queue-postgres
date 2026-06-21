@@ -2,7 +2,7 @@
 
 namespace Cekta\Queue\Postgres\Test\Fixture;
 
-use Cekta\Queue\Postgres\Status;
+use Cekta\Queue\Status;
 use PDO;
 
 class DbStructure

@@ -4,7 +4,23 @@ declare(strict_types=1);
 
 namespace Cekta\Queue\Postgres;
 
-interface HandlerProvider
+use Cekta\Queue\Handler;
+use Psr\Container\ContainerInterface;
+use RuntimeException;
+
+class HandlerProvider
 {
-    public function getHandler(string $name): Handler;
+    public function __construct(
+        private ContainerInterface $container
+    ) {
+    }
+
+    public function getHandler(string $name): Handler
+    {
+        $handler = $this->container->get($name);
+        if (($handler instanceof Handler) === false) {
+            throw new RuntimeException("$name is not a Handler");
+        }
+        return $handler;
+    }
 }

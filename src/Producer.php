@@ -3,6 +3,7 @@
 namespace Cekta\Queue\Postgres;
 
 use Cekta\Queue\Postgres\Exception\TaskHandlerNotFound;
+use Cekta\Queue\Status;
 use DateTimeInterface;
 use JsonSerializable;
 use PDO;
@@ -27,9 +28,9 @@ readonly class Producer
     ) {
     }
 
-    public function send(JsonSerializable $task): string
+    public function send(JsonSerializable $payload): string
     {
-        $fqcn = get_class($task);
+        $fqcn = get_class($payload);
         if (!array_key_exists($fqcn, $this->handlers)) {
             throw new TaskHandlerNotFound($fqcn);
         }
@@ -61,8 +62,8 @@ INSERT INTO "%s" (
         $sth->execute([
             'uuid' => $uuid->toString(),
             'queue_name' => $this->queueName,
-            'fqcn' => $task::class,
-            'payload' => json_encode($task),
+            'fqcn' => $payload::class,
+            'payload' => json_encode($payload),
             'created_at' => $this->clock->now()->format(DateTimeInterface::RFC3339),
             'status' => Status::PENDING->value,
             'handler' => $handler

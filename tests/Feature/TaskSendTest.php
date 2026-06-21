@@ -4,16 +4,17 @@ namespace Cekta\Queue\Postgres\Test\Feature;
 
 use Cekta\Queue\Postgres\Consumer;
 use Cekta\Queue\Postgres\Exception\TaskHandlerNotFound;
-use Cekta\Queue\Postgres\Handler;
+use Cekta\Queue\Handler;
 use Cekta\Queue\Postgres\HandlerProvider;
 use Cekta\Queue\Postgres\Producer;
-use Cekta\Queue\Postgres\Provider;
-use Cekta\Queue\Postgres\Status;
-use Cekta\Queue\Postgres\TaskDTO;
-use Cekta\Queue\Postgres\TaskProvider;
+use Cekta\Queue\Postgres\TaskRepository;
 use Cekta\Queue\Postgres\Test\Fixture\DbStructure;
 use Cekta\Queue\Postgres\Test\Fixture\ExampleHandler;
 use Cekta\Queue\Postgres\Test\Fixture\ExampleTask;
+use Cekta\Queue\Status;
+use Cekta\Queue\Task;
+use Closure;
+use JsonSerializable;
 use Lcobucci\Clock\SystemClock;
 use PDO;
 use Testo\Assert;
@@ -31,7 +32,6 @@ class TaskSendTest
      * @var array<class-string, class-string>
      */
     private array $handlers;
-    private Provider $handlerProvider;
 
     public function __construct()
     {
@@ -91,16 +91,16 @@ class TaskSendTest
 
         $consumer = new Consumer(
             pdo: $this->pdo,
-            handlerProvider: $this->createHandlerProvider(function (TaskDTO $task) use ($uuid) {
-                Assert::equals($task->uuid, $uuid);
-                Assert::equals($task->payload, $this->payload);
-                Assert::notNull($task->started_at);
-                Assert::null($task->finished_at);
-                Assert::equals($task->status, Status::PROCESSING);
+            handlerProvider: $this->createHandlerProvider(function (Task $task) use ($uuid) {
+                Assert::equals($task->getUuid(), $uuid);
+                Assert::equals($task->getPayload(), $this->payload);
+                Assert::notNull($task->getStartedAt());
+                Assert::null($task->getFinishedAt());
+                Assert::equals($task->getStatus(), Status::PROCESSING);
                 return true;
             }),
             clock: $this->clock,
-            taskProvider: new TaskProvider($this->pdo),
+            taskRepository: new TaskRepository($this->pdo),
         );
 
         $task = $consumer->consume();
@@ -108,8 +108,8 @@ class TaskSendTest
         Assert::notNull($row['started_at']);
         Assert::notNull($row['finished_at']);
         Assert::equals($row['status'], Status::SUCCESS->value);
-        Assert::equals($task->status, Status::SUCCESS);
-        Assert::same($task->uuid, $uuid);
+        Assert::equals($task->getStatus(), Status::SUCCESS);
+        Assert::same($task->getUuid(), $uuid);
         Assert::false($this->getQueueRow($uuid), 'Задачи не должно остаться в очереди');
         Assert::null($consumer->consume(), 'Задача не доступна для повторной обработки');
     }
@@ -121,20 +121,20 @@ class TaskSendTest
 
         $consumer = new Consumer(
             pdo: $this->pdo,
-            handlerProvider: $this->createHandlerProvider(function (TaskDTO $task) {
+            handlerProvider: $this->createHandlerProvider(function (Task $task) {
                 return false;
             }),
             clock: $this->clock,
-            taskProvider: new TaskProvider($this->pdo),
+            taskRepository: new TaskRepository($this->pdo),
         );
 
         $task = $consumer->consume();
-        $row = $this->getTaskRow($uuid);
+        $row = $this->getTaskRow($task->getUuid());
         Assert::notNull($row['started_at']);
         Assert::notNull($row['finished_at']);
         Assert::equals($row['status'], Status::FAIL->value);
-        Assert::equals($task->status, Status::FAIL);
-        Assert::same($task->uuid, $uuid);
+        Assert::equals($task->getStatus(), Status::FAIL);
+        Assert::same($task->getUuid(), $uuid);
         Assert::false($this->getQueueRow($uuid), 'Задачи не должно остаться в очереди');
         Assert::null($consumer->consume(), 'Задача не доступна для повторной обработки');
     }
@@ -143,18 +143,18 @@ class TaskSendTest
     {
         $consumer = new Consumer(
             pdo: $this->pdo,
-            handlerProvider: $this->createHandlerProvider(function (TaskDTO $task) {
+            handlerProvider: $this->createHandlerProvider(function (Task $task) {
                 return true;
             }),
             clock: $this->clock,
-            taskProvider: new TaskProvider($this->pdo),
+            taskRepository: new TaskRepository($this->pdo),
         );
         Assert::null($consumer->consume());
     }
 
     public function testPushWithoutHandler(): void
     {
-        $task = new class implements \JsonSerializable {
+        $task = new class implements JsonSerializable {
             public function jsonSerialize(): mixed
             {
                 return 'something';
@@ -185,8 +185,7 @@ class TaskSendTest
     {
         $sth = $this->pdo->prepare("SELECT * FROM tasks WHERE uuid = ?");
         $sth->execute([$uuid]);
-        $row = $sth->fetch(PDO::FETCH_ASSOC);
-        return $row;
+        return $sth->fetch(PDO::FETCH_ASSOC);
     }
 
     private function getQueueRow(string $uuid): false|array
@@ -196,25 +195,26 @@ class TaskSendTest
         return $sth->fetch(PDO::FETCH_ASSOC);
     }
 
-    private function createHandlerProvider(\Closure $callback)
+    private function createHandlerProvider(Closure $callback): HandlerProvider
     {
-        return new class ($callback) implements HandlerProvider {
+        return new class ($callback) extends HandlerProvider {
+            /** @noinspection PhpMissingParentConstructorInspection */
             public function __construct(
-                private \Closure $callback
+                private readonly Closure $callback
             ) {
             }
 
             public function getHandler(string $name): Handler
             {
-                return new class ($this->callback) implements Handler {
+                return new readonly class ($this->callback) implements Handler {
                     public function __construct(
-                        private \Closure $callback
+                        private Closure $callback
                     ) {
                     }
 
-                    public function handle(TaskDTO $taskDTO): bool
+                    public function handle(Task $task): bool
                     {
-                        return call_user_func($this->callback, $taskDTO);
+                        return call_user_func($this->callback, $task);
                     }
                 };
             }

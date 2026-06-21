@@ -4,25 +4,28 @@ declare(strict_types=1);
 
 namespace Cekta\Queue\Postgres;
 
+use Cekta\Queue\Status;
+use Cekta\Queue\Task;
+use Cekta\Queue\TaskDTO;
 use DateMalformedStringException;
 use DateTimeImmutable;
 use PDO;
 use RuntimeException;
 
-class TaskProvider
+class TaskRepository implements \Cekta\Queue\TaskRepository
 {
     public function __construct(
         private PDO $pdo,
     ) {
     }
 
-    public function get(string $uuid): TaskDTO
+    public function findByUuid(string $uuid): ?Task
     {
         $sth = $this->pdo->prepare("SELECT * FROM tasks WHERE uuid = :uuid");
         $sth->execute(['uuid' => $uuid]);
         $row = $sth->fetch(PDO::FETCH_ASSOC);
         if ($row === false) {
-            throw new RuntimeException("Task not found");
+            return null;
         }
         /** @var array{
          * uuid: string,
