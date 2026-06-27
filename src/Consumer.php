@@ -4,7 +4,6 @@ namespace Cekta\Queue\Postgres;
 
 use Cekta\Queue\Status;
 use Cekta\Queue\Task;
-use Cekta\Queue\TaskDTO;
 use DateTimeInterface;
 use PDO;
 use Psr\Clock\ClockInterface;
@@ -25,8 +24,12 @@ readonly class Consumer
         if ($task === null) {
             return null;
         }
-        $handler = $this->handlerProvider->getHandler($task->getHandler());
-        $status = $handler->handle($task) ? Status::SUCCESS->value : Status::FAIL->value;
+        try {
+            $result = $this->handlerProvider->getHandler($task->getHandler())->handle($task);
+        } catch (\Throwable $exception) {
+            $result = false;
+        }
+        $status = $result ? Status::SUCCESS->value : Status::FAIL->value;
         $this->pdo->prepare("UPDATE tasks SET status = :status, finished_at = :finished_at WHERE uuid = :uuid")
             ->execute([
                 'uuid' => $task->getUuid(),
