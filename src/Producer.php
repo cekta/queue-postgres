@@ -10,7 +10,7 @@ use PDO;
 use Psr\Clock\ClockInterface;
 use Ramsey\Uuid\Uuid;
 
-readonly class Producer
+readonly class Producer implements \Cekta\Queue\Producer
 {
     /**
      * @param PDO $pdo
