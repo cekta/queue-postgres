@@ -86,6 +86,8 @@ class TaskSendTest
         Assert::equals(json_decode($row['payload'], true), $this->payload);
         Assert::notNull($row['created_at']);
         Assert::null($row['started_at']);
+        Assert::null($row['started_hostname']);
+        Assert::null($row['started_pid']);
         Assert::null($row['finished_at']);
         Assert::array($this->getQueueRow($uuid))->notEmpty('Задача должна появится в очереди');
 
@@ -106,6 +108,8 @@ class TaskSendTest
         $task = $consumer->consume();
         $row = $this->getTaskRow($uuid);
         Assert::notNull($row['started_at']);
+        Assert::notNull($row['started_pid']);
+        Assert::notNull($row['started_hostname']);
         Assert::notNull($row['finished_at']);
         Assert::equals($row['status'], Status::SUCCESS->value);
         Assert::equals($task->getStatus(), Status::SUCCESS);
@@ -130,6 +134,7 @@ class TaskSendTest
 
         $task = $consumer->consume();
         $row = $this->getTaskRow($task->getUuid());
+        Assert::notSame($row, false);
         Assert::notNull($row['started_at']);
         Assert::notNull($row['finished_at']);
         Assert::equals($row['status'], Status::FAIL->value);
@@ -177,6 +182,8 @@ class TaskSendTest
      *  payload: string,
      *  created_at: string,
      *  started_at: ?string,
+     *  started_hostname: ?string,
+     *  started_pid: ?int,
      *  finished_at: ?string,
      *  status: string
      *  }

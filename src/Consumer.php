@@ -72,12 +72,17 @@ readonly class Consumer
         /** @var array{uuid: string} $row */
         $this->pdo->prepare(
             "UPDATE tasks 
-                        SET status = :status, started_at = :started_at
+                        SET status = :status, 
+                            started_at = :started_at,
+                            started_hostname = :started_hostname,
+                            started_pid = :started_pid
                         WHERE uuid = :uuid"
         )->execute([
             'uuid' => $row['uuid'],
             'status' => Status::PROCESSING->value,
             'started_at' => $this->clock->now()->format(DateTimeInterface::RFC3339),
+            'started_hostname' => gethostname(),
+            'started_pid' => getmypid(),
         ]);
         return $row['uuid'];
     }
