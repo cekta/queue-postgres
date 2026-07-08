@@ -6,15 +6,15 @@ namespace Cekta\Queue\Postgres;
 
 use Cekta\Queue\Task;
 
-class Consumer implements \Cekta\Queue\Consumer
+class TaskLocator implements \Cekta\Queue\TaskLocator
 {
     public function __construct(
         private TaskRepository $taskRepository,
     ) {
     }
 
-    public function findNext(): ?Task
+    public function findByUuid(string $uuid): ?Task
     {
-        return $this->taskRepository->findNext();
+        return $this->taskRepository->findByUuid($uuid);
     }
 }

@@ -24,7 +24,8 @@
     "infection/infection": "@stable",
     "testo/testo": "@stable",
     "testo/bridge-infection": "@stable",
-    "lcobucci/clock": "^3.5"
+    "lcobucci/clock": "^3.5",
+    "mockery/mockery": "^1.6"
   },
   "scripts": {
     "test": [

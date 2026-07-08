@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Cekta\Queue\Postgres\Exception;
 
-use JetBrains\PhpStorm\Pure;
+use RuntimeException;
 
-class TaskHandlerNotFound extends \RuntimeException
+class TaskHandlerNotFound extends RuntimeException
 {
     public function __construct(string $taskFqcn)
     {

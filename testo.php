@@ -24,6 +24,10 @@ return new ApplicationConfig(
             name: "Feature",
             location: ["tests/Feature"],
         ),
+        new SuiteConfig(
+            name: "Unit",
+            location: ["tests/Unit"],
+        ),
     ],
     plugins: [
         new CodecovPlugin(
