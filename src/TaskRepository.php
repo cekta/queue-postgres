@@ -10,9 +10,11 @@ use Cekta\Queue\TaskDTO;
 use DateMalformedStringException;
 use DateTimeImmutable;
 use DateTimeInterface;
+use InvalidArgumentException;
 use JsonSerializable;
 use PDO;
 use Psr\Clock\ClockInterface;
+use Psr\Log\LoggerInterface;
 use RuntimeException;
 
 class TaskRepository
@@ -20,9 +22,39 @@ class TaskRepository
     public function __construct(
         private PDO $pdo,
         private ClockInterface $clock,
+        private LoggerInterface $logger,
         private string $table = "tasks",
         private string $queueName = "queue_default",
     ) {
+    }
+
+    /**
+     * @param int $expiredSecond
+     * @return Task[]
+     */
+    public function findExpired(int $expiredSecond): array
+    {
+        $sth = $this->pdo->prepare(
+            <<<SQL
+SELECT * FROM $this->table 
+WHERE 
+    status = :status
+    AND started_at < NOW() - make_interval(secs => :max);
+SQL
+        );
+        $sth->execute([
+            'status' => Status::PROCESSING->value,
+            'max' => $expiredSecond,
+        ]);
+        $result = [];
+        $sth->setFetchMode(PDO::FETCH_ASSOC);
+        foreach ($sth as $row) {
+            if (!is_array($row)) {
+                throw new InvalidArgumentException('row must be an array');
+            }
+            $result[] = $this->toTask($row);
+        }
+        return $result;
     }
 
     public function findByUuid(string $uuid): ?Task
@@ -30,44 +62,17 @@ class TaskRepository
         $sth = $this->pdo->prepare("SELECT * FROM tasks WHERE uuid = :uuid");
         $sth->execute(['uuid' => $uuid]);
         $row = $sth->fetch(PDO::FETCH_ASSOC);
-        if ($row === false) {
+        if (!is_array($row)) {
             return null;
         }
-        /** @var array{
-         * uuid: string,
-         * queue_name: string,
-         * handler: string,
-         * fqcn: string,
-         * payload: string,
-         * created_at: string,
-         * started_at: ?string,
-         * finished_at: ?string,
-         * status: string
-         * } $row
-         */
-        try {
-            return new TaskDTO(
-                $row['uuid'],
-                $row['fqcn'],
-                $row['handler'],
-                json_decode($row['payload'], true),
-                Status::from($row['status']),
-                new DateTimeImmutable($row['created_at']),
-                is_string($row['started_at']) ? new DateTimeImmutable($row['started_at']) : null,
-                is_string($row['finished_at']) ? new DateTimeImmutable($row['finished_at']) : null,
-            );
-        } catch (DateMalformedStringException $e) {
-            throw new RuntimeException(message: $e->getMessage(), previous: $e);
-        }
+        return $this->toTask($row);
     }
 
     public function push(string $uuid, JsonSerializable $payload, string $handler): void
     {
         $this->pdo->beginTransaction();
-
-        $query = sprintf(
-            '
-INSERT INTO "%s" (
+        $query = <<<SQL
+INSERT INTO "$this->table"(
     "uuid",
     "queue_name",
     "handler",
@@ -83,9 +88,8 @@ INSERT INTO "%s" (
     :payload,
     :created_at,
     :status
-)',
-            $this->table
-        );
+)
+SQL;
         $sth = $this->pdo->prepare($query);
         $sth->execute([
             'uuid' => $uuid,
@@ -97,7 +101,7 @@ INSERT INTO "%s" (
             'handler' => $handler
         ]);
 
-        $sth = $this->pdo->prepare("INSERT INTO {$this->queueName}(uuid) VALUES (:uuid)");
+        $sth = $this->pdo->prepare("INSERT INTO $this->queueName(uuid) VALUES (:uuid)");
         $sth->execute([
             'uuid' => $uuid,
         ]);
@@ -105,15 +109,19 @@ INSERT INTO "%s" (
         $this->pdo->commit();
     }
 
-    public function storeResult(string $uuid, bool $result): void
+    public function updateStatus(string $uuid, Status $status): void
     {
-        $status = $result ? Status::SUCCESS->value : Status::FAIL->value;
         $this->pdo->prepare("UPDATE tasks SET status = :status, finished_at = :finished_at WHERE uuid = :uuid")
             ->execute([
                 'uuid' => $uuid,
-                'status' => $status,
+                'status' => $status->value,
                 'finished_at' => $this->clock->now()->format(DateTimeInterface::RFC3339),
             ]);
+
+        $this->logger->info("task {uuid} was handled status is {status}", [
+            'uuid' => $uuid,
+            'status' => $status->value,
+        ]);
     }
 
     public function findNext(): ?Task
@@ -127,6 +135,41 @@ INSERT INTO "%s" (
         $task = $this->findByUuid($uuid);
         $this->pdo->commit();
         return $task;
+    }
+
+    /**
+     * @param array<mixed> $row
+     * @return Task
+     */
+    private function toTask(array $row): Task
+    {
+        /**
+         * @var array{
+         *  uuid: string,
+         *  queue_name: string,
+         *  handler: string,
+         *  fqcn: string,
+         *  payload: string,
+         *  created_at: string,
+         *  started_at: ?string,
+         *  finished_at: ?string,
+         *  status: string
+         *  } $row
+         */
+        try {
+            return new TaskDTO(
+                $row['uuid'],
+                $row['fqcn'],
+                $row['handler'],
+                json_decode($row['payload'], true),
+                Status::from($row['status']),
+                new DateTimeImmutable($row['created_at']),
+                is_string($row['started_at']) ? new DateTimeImmutable($row['started_at']) : null,
+                is_string($row['finished_at']) ? new DateTimeImmutable($row['finished_at']) : null,
+            );
+        } catch (DateMalformedStringException $e) {
+            throw new RuntimeException(message: $e->getMessage(), previous: $e);
+        }
     }
 
     private function findNextUUID(): ?string

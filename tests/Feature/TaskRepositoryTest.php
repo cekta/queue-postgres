@@ -11,6 +11,7 @@ use Cekta\Queue\Postgres\Test\Fixture\ExampleTask;
 use Cekta\Queue\Status;
 use Lcobucci\Clock\SystemClock;
 use PDO;
+use Psr\Log\NullLogger;
 use Ramsey\Uuid\Uuid;
 use Testo\Assert;
 use Testo\Lifecycle\AfterClass;
@@ -40,6 +41,7 @@ class TaskRepositoryTest
         $this->repository = new TaskRepository(
             pdo: $this->pdo,
             clock: $this->clock,
+            logger: new NullLogger(),
         );
     }
 
